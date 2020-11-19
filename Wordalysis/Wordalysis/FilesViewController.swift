@@ -11,7 +11,10 @@ import UIKit
 class FilesViewController: UITableViewController {
     
     var progressGroup = DispatchGroup()
-    var timer: DispatchSourceTimer?
+    
+    private var displayLink: CADisplayLink?
+    private var startTime = 0.0
+    private let updateTime = 5.0
     
     let textFinder = TextFinder()
     var counters: [WordCounter] = []
@@ -120,18 +123,33 @@ class FilesViewController: UITableViewController {
     }
     
     func startUpdating() {
-        timer = DispatchSource.makeTimerSource(flags: [], queue: DispatchQueue.main)
-        timer?.schedule(deadline: DispatchTime.now(), repeating: DispatchTimeInterval.milliseconds(16), leeway: .milliseconds(5))
-        timer?.setEventHandler(qos: .userInitiated, flags: [], handler: self.update)
-        timer?.resume()
+        stopUpdating() // stop a previous running display link
+        startTime = CACurrentMediaTime() // reset start time
+        
+        // create displayLink & add it to the run-loop
+        let displayLink = CADisplayLink (
+            target: self, selector: #selector(displayLinkDidFire)
+        )
+        
+        displayLink.add(to: .main, forMode: .common)
+        self.displayLink = displayLink
     }
     
-    func stopUpdating() {
-        timer?.cancel()
-        timer = nil
+    @objc func displayLinkDidFire(_ displayLink: CADisplayLink) {
+        var elapsedTime = CACurrentMediaTime() - startTime
+        
+        if elapsedTime > updateTime {
+            stopUpdating()
+            elapsedTime = updateTime
+        }
         update()
     }
     
+    func stopUpdating() {
+        displayLink?.invalidate()
+        displayLink = nil
+        update()
+    }
     
     
 }
